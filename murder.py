@@ -16,8 +16,6 @@ def generate_assignments(names, seed):
 
 st.set_page_config(page_title="Secret Santa", page_icon="🎁")
 
-st.title("🎁 Secret Santa")
-
 # --- Session state initialization ---
 if "names" not in st.session_state:
     st.session_state.names = []
