@@ -68,6 +68,8 @@ def setup_phase():
         if st.session_state.stage == 1:
             st.toast("Zuweisungen erstellt")
 
+        saved_seed = local_storage.getItem("secret_santa_seed")
+        saved_names = local_storage.getItem("secret_santa_names")
         if st.button(button_text, width="stretch", key="main_button"):
             if len(names) < 2:
                 st.error("Es werden mindestens zwei Teilnehmer benötigt")
@@ -81,7 +83,8 @@ def setup_phase():
                 local_storage.setItem("secret_santa_seed", seed, key="secret_santa_seed")
                 local_storage.setItem("secret_santa_names", names, key="secret_santa_names")
                 st.session_state.stage = 1
-                time.sleep(2)
+                if not saved_seed or not saved_names:
+                    time.sleep(2)
                 st.rerun()
 
 
