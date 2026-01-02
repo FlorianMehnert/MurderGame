@@ -25,7 +25,7 @@ def setup_phase():
     if not st.session_state.locked:
         st.subheader("Tragt eure Namen ein")
         with st.sidebar:
-            seed = st.text_input("Seed der die pseudo zufällige Zuweisung definiert", value=st.session_state.saved_seed)
+            seed = st.text_input("Seed der die pseudo zufällige Zuweisung definiert", value=st.session_state.saved_seed if st.session_state.saved_seed else random.randint(0, 1000000000))
         names_input = st.text_area(
             "Teilnehmer (ein Name pro Zeile)",
             value="\n".join(st.session_state.saved_names),
