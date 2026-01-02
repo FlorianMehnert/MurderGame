@@ -1,5 +1,8 @@
+import enum
+
 import streamlit as st
 import random
+from streamlit_local_storage import LocalStorage
 
 
 def generate_assignments(names, seed):
@@ -13,72 +16,103 @@ def generate_assignments(names, seed):
 
     return assignments
 
-
-st.set_page_config(page_title="Secret Santa", page_icon="🎁")
-
-# --- Session state initialization ---
-if "names" not in st.session_state:
-    st.session_state.names = []
-
-if "assignments" not in st.session_state:
-    st.session_state.assignments = {}
-
-if "revealed" not in st.session_state:
-    st.session_state.revealed = set()
-
-if "locked" not in st.session_state:
-    st.session_state.locked = False
+class button_text(enum.Enum):
+    setup = "Zuweisungen erstellen"
+    reveal = "Zuweisung anzeigen"
 
 
-# --- Setup phase ---
-if not st.session_state.locked:
-    st.subheader("Setup")
+if __name__ == '__main__':
+    st.set_page_config(page_title="Das Mörder Spiel", page_icon="🥷")
 
-    seed = st.text_input("Seed eingeben")
-    names_input = st.text_area(
-        "Teilnehmer (ein Name pro Zeile)",
-        height=200,
-    )
+    local_storage = LocalStorage()
 
-    names = [n.strip() for n in names_input.splitlines() if n.strip()]
+    # --- Session state initialization ---
+    if "names" not in st.session_state:
+        st.session_state.names = []
 
-    if st.button("Start"):
-        if len(names) < 2:
-            st.error("Es werden mindestens zwei Teilnehmer benötigt")
-        elif len(set(names)) != len(names):
-            st.error("Namen müssen eindeutig sein")
-        else:
-            st.session_state.names = names
-            st.session_state.assignments = generate_assignments(names, seed)
-            st.session_state.revealed = set()
-            st.session_state.locked = True
-            st.success("Zuweisungen erstellt")
+    # 0: enter names, 1: reveal stage
+    if "stage" not in st.session_state:
+        st.session_state.stage = 0
 
+    if "assignments" not in st.session_state:
+        st.session_state.assignments = {}
 
-# --- Reveal phase ---
-else:
-    st.subheader("Zuweisung anzeigen")
+    if "revealed" not in st.session_state:
+        st.session_state.revealed = set()
 
-    name = st.selectbox("Dein Name", st.session_state.names)
+    if "locked" not in st.session_state:
+        st.session_state.locked = False
 
-    if name in st.session_state.revealed:
-        st.warning("Du hast deine Zuweisung bereits gesehen")
+    # Load saved values from local storage
+    if "initialized" not in st.session_state:
+        saved_seed = local_storage.getItem("secret_santa_seed")
+        saved_name = local_storage.getItem("secret_santa_name")
+        saved_names = local_storage.getItem("secret_santa_names")
+        st.session_state.saved_seed = saved_seed if saved_seed else ""
+        st.session_state.saved_name = saved_name if saved_name else ""
+        st.session_state.saved_names = saved_names if saved_names else ""
+        st.session_state.initialized = True
+
+    # --- Setup phase ---
+    if not st.session_state.locked:
+        st.subheader("Tragt eure Namen ein")
+        with st.sidebar:
+            seed = st.text_input("Seed der die pseudo zufällige Zuweisung definiert", value=st.session_state.saved_seed)
+        names_input = st.text_area(
+            "Teilnehmer (ein Name pro Zeile)",
+            value="\n".join(st.session_state.saved_names),
+            height=200,
+        )
+
+        names = [n.strip() for n in names_input.splitlines() if n.strip()]
+
+        button_text = button_text.setup.value if st.session_state.stage == 0 else button_text.reveal.value
+        if st.session_state.stage == 1:
+            st.toast("Zuweisungen erstellt")
+
+        if st.button(button_text, width="stretch", key="main_button"):
+            if len(names) < 2:
+                st.error("Es werden mindestens zwei Teilnehmer benötigt")
+            elif len(set(names)) != len(names):
+                st.error("Namen müssen eindeutig sein")
+            else:
+                if st.session_state.stage is 0:
+                    st.session_state.stage = 1
+                    st.rerun()
+
+                st.session_state.names = names
+                st.session_state.assignments = generate_assignments(names, seed)
+                st.session_state.revealed = set()
+                st.session_state.locked = True
+                local_storage.setItem("secret_santa_seed", seed, key="secret_santa_seed")
+                local_storage.setItem("secret_santa_names", names, key="secret_santa_names")
+
+    # --- Reveal phase ---
     else:
-        if st.button("Zuweisung anzeigen"):
-            recipient = st.session_state.assignments[name]
-            st.success(f"{name}, du musst **{recipient}** etwas geben")
-            st.session_state.revealed.add(name)
+        st.subheader("Zuweisung anzeigen")
 
-    st.divider()
+        name = st.selectbox(
+            "Dein Name",
+            st.session_state.names,
+            index=st.session_state.names.index(st.session_state.saved_name)
+            if st.session_state.saved_name in st.session_state.names else 0
+        )
 
-    col1, col2 = st.columns(2)
+        # Save the selected name to local storage
+        if name != st.session_state.saved_name:
+            local_storage.setItem("secret_santa_name", name)
+            st.session_state.saved_name = name
 
-    with col1:
+        if name in st.session_state.revealed:
+            st.warning("Du hast deine Zuweisung bereits gesehen")
+        else:
+            if st.button("Zuweisung anzeigen"):
+                recipient = st.session_state.assignments[name]
+                st.success(f"{name}, du musst **{recipient}** etwas geben")
+                st.session_state.revealed.add(name)
+
+        st.divider()
+
         if st.button("Reset"):
             st.session_state.revealed.clear()
             st.success("Zurückgesetzt – alle können erneut schauen")
-
-    with col2:
-        if st.button("Neustart"):
-            st.session_state.clear()
-            st.experimental_rerun()
