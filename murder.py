@@ -81,7 +81,7 @@ def setup_phase():
                 local_storage.setItem("secret_santa_seed", seed, key="secret_santa_seed")
                 local_storage.setItem("secret_santa_names", names, key="secret_santa_names")
                 st.session_state.stage = 1
-                time.sleep(.5)
+                time.sleep(2)
                 st.rerun()
 
 
